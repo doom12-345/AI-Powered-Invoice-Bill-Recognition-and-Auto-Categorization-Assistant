@@ -165,5 +165,3 @@ smart-invoice-assistant
 ## ⚠️ 安全提醒
 
 - **API Key 已抽离到环境变量**，代码里不再出现明文密钥。请勿再把 Key 写回 `application.yml`。
-- 若之前在对话、截图或提交历史中泄露过 Key，建议去智谱控制台**重新生成一个新 Key**，旧 Key 作废。
-- 推 GitHub 前确认：`.gitignore` 已排除 `data/`、`uploads/`、`target/` 等运行时文件。
