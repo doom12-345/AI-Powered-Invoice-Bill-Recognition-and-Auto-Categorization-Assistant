@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>发票统计</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        body { font-family: -apple-system, "Microsoft YaHei", sans-serif; margin: 24px; color: #333; }
+        a { color: #409eff; text-decoration: none; }
+        .chart { width: 90%; max-width: 900px; height: 400px; margin-bottom: 20px; }
+        .empty { color: #999; }
+    </style>
+</head>
+<body>
+    <p><a href="/">← 返回上传页</a></p>
+    <h2>发票统计</h2>
+
+    <h3>分类金额占比</h3>
+    <div id="categoryChart" class="chart"></div>
+
+    <h3>月度消费趋势</h3>
+    <div id="monthlyChart" class="chart"></div>
+
+    <script>
+        function showEmpty(chart, elId) {
+            document.getElementById(elId).innerHTML = '<p class="empty">暂无数据，请先上传几张发票</p>';
+        }
+
+        // 分类占比饼图
+        fetch('/api/stats/summary')
+            .then(r => r.json())
+            .then(json => {
+                var data = json.data || [];
+                if (!data.length) { showEmpty(null, 'categoryChart'); return; }
+                var chart = echarts.init(document.getElementById('categoryChart'));
+                chart.setOption({
+                    tooltip: { trigger: 'item', formatter: '{b}：¥{c}（{d}%）' },
+                    legend: { bottom: 0 },
+                    series: [{
+                        type: 'pie',
+                        radius: '55%',
+                        data: data.map(d => ({ name: d.categoryName, value: Number(d.totalAmount) })),
+                        label: { formatter: '{b}：¥{c}' }
+                    }]
+                });
+            })
+            .catch(() => showEmpty(null, 'categoryChart'));
+
+        // 月度趋势柱状图
+        fetch('/api/stats/monthly')
+            .then(r => r.json())
+            .then(json => {
+                var data = json.data || [];
+                if (!data.length) { showEmpty(null, 'monthlyChart'); return; }
+                var chart = echarts.init(document.getElementById('monthlyChart'));
+                chart.setOption({
+                    tooltip: { trigger: 'axis', formatter: function (p) { return p[0].name + '：¥' + p[0].value; } },
+                    grid: { left: 60, right: 30, top: 40, bottom: 40 },
+                    xAxis: { type: 'category', data: data.map(d => d.month) },
+                    yAxis: { type: 'value', name: '金额（元）' },
+                    series: [{
+                        type: 'bar',
+                        data: data.map(d => Number(d.totalAmount)),
+                        itemStyle: { color: '#409eff' },
+                        label: { show: true, position: 'top' }
+                    }]
+                });
+            })
+            .catch(() => showEmpty(null, 'monthlyChart'));
+    </script>
+</body>
+</html>

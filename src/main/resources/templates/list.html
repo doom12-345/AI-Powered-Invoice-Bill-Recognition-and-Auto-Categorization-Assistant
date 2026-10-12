@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>发票列表</title>
+    <style>
+        body { font-family: -apple-system, "Microsoft YaHei", sans-serif; margin: 24px; color: #333; }
+        a { color: #409eff; text-decoration: none; margin-right: 16px; }
+        table { border-collapse: collapse; width: 100%; max-width: 1100px; }
+        th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; font-size: 14px; }
+        th { background: #f5f5f5; }
+        button { cursor: pointer; }
+        .tag-success { color: #67c23a; }
+        .tag-review { color: #e6a23c; }
+        .tag-bad { color: #f56c6c; }
+        .edit-form { display: none; background: #fafafa; padding: 16px; margin: 16px 0; border: 1px solid #ddd; max-width: 620px; }
+        .edit-form div { margin-bottom: 8px; }
+        .edit-form label { display: inline-block; width: 60px; }
+    </style>
+</head>
+<body>
+    <p>
+        <a href="/">← 上传页</a>
+        <a href="/stats">查看统计 →</a>
+    </p>
+    <h2>发票列表</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>文件名</th>
+                <th>金额</th>
+                <th>日期</th>
+                <th>公司</th>
+                <th>分类</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+
+    <div id="editForm" class="edit-form">
+        <h3>编辑记录</h3>
+        <input type="hidden" id="editId">
+        <div><label>金额</label><input type="number" id="editAmount" step="0.01"></div>
+        <div><label>日期</label><input type="date" id="editDate"></div>
+        <div><label>公司</label><input type="text" id="editCompany"></div>
+        <div><label>分类</label>
+            <select id="editCategory">
+                <option value="DINING">餐饮</option>
+                <option value="TRANSPORT">交通</option>
+                <option value="SHOPPING">购物</option>
+                <option value="OFFICE">办公</option>
+                <option value="RESEARCH">科研</option>
+                <option value="LODGING">住宿</option>
+                <option value="CONFERENCE">会议培训</option>
+                <option value="OTHER">其他</option>
+            </select>
+        </div>
+        <div>
+            <button onclick="saveEdit()">保存</button>
+            <button onclick="document.getElementById('editForm').style.display='none'">取消</button>
+        </div>
+    </div>
+
+    <script>
+        var statusMap = { SUCCESS: '识别成功', PARTIAL: '部分识别', NOT_INVOICE: '可能不是发票', PENDING: '待识别', FAILED: '识别失败' };
+        var catMap = { DINING: '餐饮', TRANSPORT: '交通', SHOPPING: '购物', OFFICE: '办公', RESEARCH: '科研', LODGING: '住宿', CONFERENCE: '会议培训', OTHER: '其他' };
+
+        function load() {
+            fetch('/api/invoice/list')
+                .then(r => r.json())
+                .then(json => render(json.data || []));
+        }
+
+        function render(list) {
+            var tbody = document.getElementById('tbody');
+            tbody.innerHTML = '';
+            if (!list.length) {
+                tbody.innerHTML = '<tr><td colspan="8" style="color:#999">暂无记录，请先上传发票</td></tr>';
+                return;
+            }
+            list.forEach(function (inv) {
+                var statusClass = inv.status === 'SUCCESS' ? 'tag-success' : (inv.status === 'PARTIAL' || inv.status === 'PENDING' ? 'tag-review' : 'tag-bad');
+                var reviewMark = inv.needManualReview ? ' ⚠' : '';
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td>' + inv.id + '</td>' +
+                    '<td>' + (inv.originalFilename || '-') + '</td>' +
+                    '<td>' + (inv.amount != null ? inv.amount : '-') + '</td>' +
+                    '<td>' + (inv.invoiceDate != null ? inv.invoiceDate : '-') + '</td>' +
+                    '<td>' + (inv.company || '-') + '</td>' +
+                    '<td>' + (catMap[inv.category] || '-') + '</td>' +
+                    '<td class="' + statusClass + '">' + (statusMap[inv.status] || inv.status) + reviewMark + '</td>' +
+                    '<td><button onclick="edit(' + inv.id + ')">编辑</button> <button onclick="del(' + inv.id + ')">删除</button></td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function edit(id) {
+            fetch('/api/invoice/' + id)
+                .then(r => r.json())
+                .then(json => {
+                    var inv = json.data;
+                    if (!inv) return;
+                    document.getElementById('editId').value = inv.id;
+                    document.getElementById('editAmount').value = inv.amount != null ? inv.amount : '';
+                    document.getElementById('editDate').value = inv.invoiceDate != null ? inv.invoiceDate : '';
+                    document.getElementById('editCompany').value = inv.company || '';
+                    document.getElementById('editCategory').value = inv.category || 'OTHER';
+                    document.getElementById('editForm').style.display = 'block';
+                    document.getElementById('editForm').scrollIntoView();
+                });
+        }
+
+        function saveEdit() {
+            var id = document.getElementById('editId').value;
+            var body = {
+                amount: document.getElementById('editAmount').value === '' ? null : document.getElementById('editAmount').value,
+                invoiceDate: document.getElementById('editDate').value === '' ? null : document.getElementById('editDate').value,
+                company: document.getElementById('editCompany').value,
+                category: document.getElementById('editCategory').value
+            };
+            fetch('/api/invoice/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+                .then(r => r.json())
+                .then(json => {
+                    document.getElementById('editForm').style.display = 'none';
+                    load();
+                });
+        }
+
+        function del(id) {
+            if (!confirm('确定删除这条记录吗？')) return;
+            fetch('/api/invoice/' + id, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(json => load());
+        }
+
+        load();
+    </script>
+</body>
+</html>

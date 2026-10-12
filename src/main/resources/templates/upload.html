@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>发票上传</title>
+</head>
+<body>
+    <h2>上传发票图片</h2>
+    <p><a href="/list">查看发票列表 →</a>　<a href="/stats">查看统计 →</a></p>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="file" name="file" accept="image/*">
+        <button type="submit">上传</button>
+    </form>
+    <p id="result"></p>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var fileInput = document.getElementById('file');
+            var file = fileInput.files[0];
+            var resultEl = document.getElementById('result');
+            if (!file) {
+                resultEl.innerText = '请先选择图片';
+                return;
+            }
+            resultEl.innerText = '上传并识别中，请稍候（可能需要几秒到几十秒）...';
+            var formData = new FormData();
+            formData.append('file', file);
+            try {
+                var resp = await fetch('/api/upload', { method: 'POST', body: formData });
+                var json = await resp.json();
+                var lines = [json.message];
+                var d = json.data;
+                if (d) {
+                    var statusMap = { SUCCESS: '识别成功', PARTIAL: '部分识别（需人工核对）', NOT_INVOICE: '可能不是发票', PENDING: '待识别', FAILED: '识别失败' };
+                    var catMap = { DINING: '餐饮', TRANSPORT: '交通', SHOPPING: '购物', OFFICE: '办公', RESEARCH: '科研', LODGING: '住宿', CONFERENCE: '会议培训', OTHER: '其它' };
+                    if (d.status != null) lines.push('状态：' + (statusMap[d.status] || d.status));
+                    if (d.amount != null) lines.push('金额：' + d.amount);
+                    if (d.invoiceDate != null) lines.push('日期：' + d.invoiceDate);
+                    if (d.company != null) lines.push('公司：' + d.company);
+                    if (d.category != null) lines.push('分类：' + (catMap[d.category] || d.category));
+                    if (d.confidence != null) lines.push('置信度：' + d.confidence);
+                    if (d.isInvoice === false) lines.push('提示：这张图片可能不是发票，请确认');
+                    if (d.status === 'SUCCESS' && d.confidence != null && d.confidence < 0.5) lines.push('提示：置信度较低，建议核对');
+                }
+                resultEl.innerText = lines.join('\n');
+            } catch (err) {
+                resultEl.innerText = '请求失败：' + err;
+            }
+        });
+    </script>
+</body>
+</html>

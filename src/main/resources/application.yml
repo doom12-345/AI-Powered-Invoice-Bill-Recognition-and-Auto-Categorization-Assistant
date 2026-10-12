@@ -1,0 +1,51 @@
+server:
+  port: 8080
+
+# 上传图片保存的本地文件夹
+file:
+  upload-dir: ./uploads
+
+# 智谱 AI 配置（api-key 从环境变量 ZHIPU_API_KEY 读取，切勿在此写明文密钥）
+ai:
+  zhipu:
+    base-url: https://open.bigmodel.cn/api/paas/v4
+    api-key: ${ZHIPU_API_KEY:}
+    model: glm-4v-flash
+
+spring:
+  application:
+    name: smart-invoice-assistant
+
+  # H2 文件数据库（数据落盘到 data/ 目录，重启不丢；先不接 AI 大模型）
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:file:./data/invoice;MODE=MySQL;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+
+  # 打开 H2 网页控制台，启动后可访问 /h2-console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # 上传文件大小限制（发票图片可能超过默认 1MB）
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  # 启动时自动执行建表脚本
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+
+# MyBatis-Plus 基础配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto

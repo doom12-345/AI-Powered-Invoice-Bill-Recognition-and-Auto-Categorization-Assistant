@@ -1,0 +1,20 @@
+# 编译输出
+target/
+
+# IDEA 配置
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# 本地运行时数据（数据库、上传的图片）
+data/
+uploads/
+
+# 系统 / 日志
+*.log
+.DS_Store
+Thumbs.db
+
+# 环境变量文件（防误提交密钥）
+.env
